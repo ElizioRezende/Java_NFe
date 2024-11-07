@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.cce;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 
 
 /**

@@ -9,6 +9,7 @@ import br.com.swconsultoria.nfe.schema.retEnvEventoAtorInteressado.TRetEnvEvento
 import br.com.swconsultoria.nfe.util.XmlNfeUtil;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * @author Samuel Oliveira - samuel@swconsultoria.com.br
@@ -28,7 +29,8 @@ class AtorInteressado {
 
             return XmlNfeUtil.xmlToObject(xml, TRetEnvEvento.class);
 
-        } catch (JAXBException e) {
+        } catch (JAXBException | InstantiationException | ClassNotFoundException | NoSuchMethodException |
+                 IllegalAccessException | InvocationTargetException e) {
             throw new NfeException(e.getMessage(),e);
         }
 

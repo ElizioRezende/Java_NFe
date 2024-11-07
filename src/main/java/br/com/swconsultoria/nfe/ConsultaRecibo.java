@@ -1,5 +1,6 @@
 package br.com.swconsultoria.nfe;
 
+import br.com.swconsultoria.certificado.CertificadoService;
 import br.com.swconsultoria.nfe.dom.ConfiguracoesNfe;
 import br.com.swconsultoria.nfe.dom.enuns.DocumentoEnum;
 import br.com.swconsultoria.nfe.dom.enuns.ServicosEnum;
@@ -11,6 +12,7 @@ import br.com.swconsultoria.nfe.util.ObjetoUtil;
 import br.com.swconsultoria.nfe.util.WebServiceUtil;
 import br.com.swconsultoria.nfe.util.XmlNfeUtil;
 import br.com.swconsultoria.nfe.wsdl.NFeRetAutorizacao.NFeRetAutorizacao4Stub;
+import br.com.swconsultoria.nfe.wsdl.android.SoapClient;
 import lombok.extern.java.Log;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.util.AXIOMUtil;
@@ -18,6 +20,7 @@ import org.apache.axis2.transport.http.HTTPConstants;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.stream.XMLStreamException;
+import java.lang.reflect.InvocationTargetException;
 import java.rmi.RemoteException;
 
 /**
@@ -50,28 +53,37 @@ class ConsultaRecibo {
             consReciNFe.setTpAmb(config.getAmbiente().getCodigo());
             consReciNFe.setNRec(recibo);
 
+            String url = WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_RECIBO);
             String xml = XmlNfeUtil.objectToXml(consReciNFe, config.getEncode());
 
             log.info("[XML-ENVIO]: " + xml);
 
-            OMElement ome = AXIOMUtil.stringToOM(xml);
-            NFeRetAutorizacao4Stub.NfeDadosMsg dadosMsg = new NFeRetAutorizacao4Stub.NfeDadosMsg();
-            dadosMsg.setExtraElement(ome);
+            String xmlResult;
+            if (!CertificadoService.isAndroid) {
+                OMElement ome = AXIOMUtil.stringToOM(xml);
+                NFeRetAutorizacao4Stub.NfeDadosMsg dadosMsg = new NFeRetAutorizacao4Stub.NfeDadosMsg();
+                dadosMsg.setExtraElement(ome);
 
-            NFeRetAutorizacao4Stub stub = new NFeRetAutorizacao4Stub(WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_RECIBO));
+                NFeRetAutorizacao4Stub stub = new NFeRetAutorizacao4Stub(WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_RECIBO));
 
-            // Timeout
-            if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
-                stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
-                stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
+                // Timeout
+                if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
+                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
+                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
                         config.getTimeout());
+                }
+                NFeRetAutorizacao4Stub.NfeResultMsg result = stub.nfeRetAutorizacaoLote(dadosMsg);
+
+                xmlResult = result.getExtraElement().toString();
+            } else {
+                SoapClient client = new SoapClient(config);
+                xmlResult = client.nfeRetAutorizacaoLote(url, xml);
             }
-            NFeRetAutorizacao4Stub.NfeResultMsg result = stub.nfeRetAutorizacaoLote(dadosMsg);
 
-            log.info("[XML-RETORNO]: " + result.getExtraElement().toString());
-            return XmlNfeUtil.xmlToObject(result.getExtraElement().toString(), TRetConsReciNFe.class);
+            log.info("[XML-RETORNO]: " + xmlResult);
+            return XmlNfeUtil.xmlToObject(xmlResult, TRetConsReciNFe.class);
 
-        } catch (RemoteException | XMLStreamException | JAXBException e) {
+        } catch (RemoteException | XMLStreamException | JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException | InvocationTargetException e) {
             throw new NfeException(e.getMessage(),e);
         }
 

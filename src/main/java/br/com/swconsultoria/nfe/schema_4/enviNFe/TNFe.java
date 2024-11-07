@@ -3,6 +3,7 @@ package br.com.swconsultoria.nfe.schema_4.enviNFe;
 
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.util.ArrayList;

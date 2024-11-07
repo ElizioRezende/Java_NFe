@@ -7,7 +7,11 @@ import br.com.swconsultoria.nfe.dom.ConfiguracoesNfe;
 import br.com.swconsultoria.nfe.dom.enuns.AssinaturaEnum;
 import br.com.swconsultoria.nfe.exception.NfeException;
 import br.com.swconsultoria.nfe.util.ObjetoUtil;
+import org.apache.xml.security.c14n.Canonicalizer;
+import org.apache.xml.security.exceptions.XMLSecurityException;
+import org.apache.xml.security.transforms.Transforms;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -69,20 +73,66 @@ public class Assinar {
 
         try {
             Document document = documentFactory(xml);
-            XMLSignatureFactory signatureFactory = XMLSignatureFactory.getInstance("DOM");
-            ArrayList<Transform> transformList = signatureFactory(signatureFactory);
-            loadCertificates(config, signatureFactory);
+            if (!CertificadoService.isAndroid) {
+                XMLSignatureFactory signatureFactory = XMLSignatureFactory.getInstance("DOM");
+                ArrayList<Transform> transformList = signatureFactory(signatureFactory);
+                loadCertificates(config, signatureFactory);
 
-            for (int i = 0; i < document.getDocumentElement().getElementsByTagName(tipoAssinatura.getTipo()).getLength(); i++) {
-                assinarNFe(tipoAssinatura, signatureFactory, transformList, privateKey, keyInfo, document, i);
+                for (int i = 0; i < document.getDocumentElement().getElementsByTagName(tipoAssinatura.getTipo()).getLength(); i++) {
+                    assinarNFe(tipoAssinatura, signatureFactory, transformList, privateKey, keyInfo, document, i);
+                }
+            } else  {
+                X509Certificate x509Certificate = loadCertificatesAndroid(config);
+
+                for (int i = 0; i < document.getElementsByTagName(tipoAssinatura.getTipo()).getLength(); i++) {
+                    assinarNFeAndroid(tipoAssinatura, privateKey, document, x509Certificate);
+                }
             }
+
             return outputXML(document);
-        } catch (SAXException | IOException | ParserConfigurationException | NoSuchAlgorithmException
-                | InvalidAlgorithmParameterException | KeyStoreException | UnrecoverableEntryException
-                | CertificadoException | MarshalException
-                | XMLSignatureException e) {
+        } catch (SAXException | IOException | ParserConfigurationException | NoSuchAlgorithmException |
+                 InvalidAlgorithmParameterException | KeyStoreException | UnrecoverableEntryException |
+                 CertificadoException | MarshalException | XMLSignatureException | XMLSecurityException e) {
             throw new NfeException("Erro ao Assinar Nfe" + e.getMessage(),e);
         }
+    }
+
+    private static void assinarNFeAndroid(
+        AssinaturaEnum tipoAssinatura, PrivateKey privateKey, Document document, X509Certificate x509Certificate
+    ) throws XMLSecurityException {
+        Element element = (Element) document.getElementsByTagName(tipoAssinatura.getTag()).item(0);
+        String id = "#"+ element.getAttribute("Id");
+        element.setIdAttribute("Id", true);
+
+        org.apache.xml.security.signature.XMLSignature xmlSignature = new org.apache.xml.security.signature.XMLSignature(
+            document, id, org.apache.xml.security.signature.XMLSignature.ALGO_ID_SIGNATURE_RSA_SHA1,
+            Canonicalizer.ALGO_ID_C14N_OMIT_COMMENTS
+        );
+
+        Transforms transforms = new Transforms(document);
+        transforms.addTransform(Transforms.TRANSFORM_ENVELOPED_SIGNATURE);
+        transforms.addTransform(Transforms.TRANSFORM_C14N_OMIT_COMMENTS);
+
+        xmlSignature.addKeyInfo(x509Certificate);
+
+        xmlSignature.addDocument(id, transforms);
+
+        document.getDocumentElement().appendChild(xmlSignature.getElement());
+
+        xmlSignature.sign(privateKey);
+    }
+
+    private static X509Certificate loadCertificatesAndroid(ConfiguracoesNfe config)
+        throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException, CertificadoException {
+
+        Certificado certificado = config.getCertificado();
+        KeyStore keyStore = CertificadoService.getKeyStore(certificado);
+
+        KeyStore.PrivateKeyEntry pkEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(certificado.getNome(),
+            new KeyStore.PasswordProtection(ObjetoUtil.verifica(certificado.getSenha()).orElse("").toCharArray()));
+        privateKey = pkEntry.getPrivateKey();
+
+        return CertificadoService.getCertificate(certificado, keyStore);
     }
 
     private static void assinarNFe(AssinaturaEnum tipoAssinatura, XMLSignatureFactory fac, ArrayList<Transform> transformList,

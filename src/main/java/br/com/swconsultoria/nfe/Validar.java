@@ -37,6 +37,7 @@ public class Validar implements ErrorHandler {
         }
     }
 
+    //TODO Passar File com Context no Android
     void validaXml(String xsd, String xml) throws NfeException {
         System.setProperty("jdk.xml.maxOccurLimit", "99999");
         String errosValidacao;

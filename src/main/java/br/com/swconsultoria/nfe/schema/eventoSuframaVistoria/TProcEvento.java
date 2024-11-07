@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.eventoSuframaVistoria;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 
 
 /**

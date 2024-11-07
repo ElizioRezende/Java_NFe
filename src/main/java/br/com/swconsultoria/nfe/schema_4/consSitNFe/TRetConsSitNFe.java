@@ -9,6 +9,10 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
 
+import br.com.swconsultoria.nfe.retorno.IRetorno;
+import br.com.swconsultoria.nfe.retorno.ITProtNFe;
+import br.com.swconsultoria.nfe.retorno.*;
+
 
 /**
  * Tipo Retorno de Pedido de Consulta da Situação Atual da Nota Fiscal Eletrônica 
@@ -54,7 +58,12 @@ import javax.xml.bind.annotation.XmlType;
     "retCancNFe",
     "procEventoNFe"
 })
-public class TRetConsSitNFe {
+public class TRetConsSitNFe implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        return getProtNFe();
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String tpAmb;

@@ -1,7 +1,10 @@
 
 package br.com.swconsultoria.nfe.schema.envEventoCancNFe;
 
+import br.com.swconsultoria.nfe.retorno.ISignatureType;
+
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -34,7 +37,12 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
     "signatureValue",
     "keyInfo"
 })
-public class SignatureType {
+public class SignatureType implements ISignatureType {
+
+    @Override
+    public void setNewSignatureValue() {
+        setSignatureValue(new SignatureValueType());
+    }
 
     @XmlElement(name = "SignedInfo", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     protected SignedInfoType signedInfo;

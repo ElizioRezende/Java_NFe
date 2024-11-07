@@ -12,6 +12,7 @@ import br.com.swconsultoria.nfe.schema.envConfRecebto.TProcEvento;
 import br.com.swconsultoria.nfe.schema.envConfRecebto.TretEvento;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -99,7 +100,7 @@ public class ManifestacaoUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static String criaProcEventoManifestacao(ConfiguracoesNfe config, TEnvEvento enviEvento, TretEvento retorno) throws JAXBException, NfeException {
+    public static String criaProcEventoManifestacao(ConfiguracoesNfe config, TEnvEvento enviEvento, TretEvento retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
         String xml = XmlNfeUtil.objectToXml(enviEvento, config.getEncode());
         xml = xml.replaceAll(" xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"", "");

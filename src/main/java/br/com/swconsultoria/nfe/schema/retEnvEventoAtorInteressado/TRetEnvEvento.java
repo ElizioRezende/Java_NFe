@@ -9,6 +9,8 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
 
+import br.com.swconsultoria.nfe.retorno.*;
+
 
 /**
  *  Tipo Retorno de Lote de Envio
@@ -55,7 +57,16 @@ import javax.xml.bind.annotation.XmlType;
     "xMotivo",
     "retEvento"
 })
-public class TRetEnvEvento {
+public class TRetEnvEvento implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        if (getRetEvento() != null && !getRetEvento().isEmpty()) {
+            return getRetEvento().get(0);
+        } else {
+            return null;
+        }
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String idLote;

@@ -12,6 +12,7 @@ import br.com.swconsultoria.nfe.schema.envcce.TProcEvento;
 import br.com.swconsultoria.nfe.schema.envcce.TRetEnvEvento;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 
@@ -100,19 +101,19 @@ public class CartaCorrecaoUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static String criaProcEventoCCe(ConfiguracoesNfe config, TEnvEvento enviEvento, TRetEnvEvento retorno) throws JAXBException, NfeException {
+    public static String criaProcEventoCCe(ConfiguracoesNfe configuracoesNfe, TEnvEvento enviEvento, TRetEnvEvento retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
-        String xml = XmlNfeUtil.objectToXml(enviEvento, config.getEncode());
+        String xml = XmlNfeUtil.objectToXml(enviEvento, configuracoesNfe.getEncode());
         xml = xml.replace(" xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"", "")
                 .replace("<evento v", "<evento xmlns=\"http://www.portalfiscal.inf.br/nfe\" v");
 
-        String assinado = Assinar.assinaNfe(ConfiguracoesUtil.iniciaConfiguracoes(config), xml, AssinaturaEnum.EVENTO);
+        String assinado = Assinar.assinaNfe(ConfiguracoesUtil.iniciaConfiguracoes(configuracoesNfe), xml, AssinaturaEnum.EVENTO);
 
         TProcEvento procEvento = new TProcEvento();
         procEvento.setEvento(XmlNfeUtil.xmlToObject(assinado, TEnvEvento.class).getEvento().get(0));
         procEvento.setRetEvento(retorno.getRetEvento().get(0));
         procEvento.setVersao(ConstantesUtil.VERSAO.EVENTO_CCE);
 
-        return XmlNfeUtil.objectToXml(procEvento, config.getEncode());
+        return XmlNfeUtil.objectToXml(procEvento, configuracoesNfe.getEncode());
     }
 }

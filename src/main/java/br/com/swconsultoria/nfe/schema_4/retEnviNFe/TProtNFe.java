@@ -8,6 +8,9 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlID;
 import javax.xml.bind.annotation.XmlSchemaType;
 import javax.xml.bind.annotation.XmlType;
+
+import br.com.swconsultoria.nfe.retorno.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -76,7 +79,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
     "infProt",
     "signature"
 })
-public class TProtNFe {
+public class TProtNFe implements ITProtNFe {
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected TProtNFe.InfProt infProt;
@@ -216,7 +219,7 @@ public class TProtNFe {
         "cMsg",
         "xMsg"
     })
-    public static class InfProt {
+    public static class InfProt implements IInfProt {
 
         @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
         protected String tpAmb;

@@ -9,6 +9,7 @@ import br.com.swconsultoria.nfe.exception.NfeException;
 import br.com.swconsultoria.nfe.schema.envEpec.*;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 
@@ -111,7 +112,7 @@ public class EpecUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static String criaProcEventoEpec(ConfiguracoesNfe config, TEnvEvento enviEvento, TRetEnvEvento retorno) throws JAXBException, NfeException {
+    public static String criaProcEventoEpec(ConfiguracoesNfe config, TEnvEvento enviEvento, TRetEnvEvento retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
         String xml = XmlNfeUtil.objectToXml(enviEvento, config.getEncode());
         xml = xml.replaceAll(" xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"", "");

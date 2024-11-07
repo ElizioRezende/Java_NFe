@@ -20,6 +20,7 @@ import org.apache.axis2.transport.http.HTTPConstants;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.stream.XMLStreamException;
+import java.lang.reflect.InvocationTargetException;
 import java.rmi.RemoteException;
 
 /**
@@ -100,7 +101,8 @@ class DistribuicaoDFe {
             return XmlNfeUtil.xmlToObject(result.getNfeDistDFeInteresseResult().getExtraElement().toString(),
                     RetDistDFeInt.class);
 
-        } catch (RemoteException | XMLStreamException | JAXBException e) {
+        } catch (RemoteException | XMLStreamException | JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException |
+                 InvocationTargetException e) {
             throw new NfeException(e.getMessage(),e);
         }
     }

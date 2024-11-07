@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.envEventoCancNFe;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -101,7 +102,12 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
     "infEvento",
     "signature"
 })
-public class TRetEvento {
+public class TRetEvento implements ITProtNFe {
+
+    @Override
+    public IInfProt getInfProt() {
+        return null;
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected TRetEvento.InfEvento infEvento;

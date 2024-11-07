@@ -7,6 +7,10 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
 
+import br.com.swconsultoria.nfe.retorno.IRetorno;
+import br.com.swconsultoria.nfe.retorno.ITProtNFe;
+import br.com.swconsultoria.nfe.retorno.*;
+
 
 /**
  * Tipo Retorno do Pedido de Autorização da Nota Fiscal Eletrônica
@@ -61,7 +65,12 @@ import javax.xml.bind.annotation.XmlType;
     "infRec",
     "protNFe"
 })
-public class TRetEnviNFe {
+public class TRetEnviNFe implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        return getProtNFe();
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String tpAmb;

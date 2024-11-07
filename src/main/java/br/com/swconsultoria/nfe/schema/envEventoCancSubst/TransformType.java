@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.envEventoCancSubst;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import java.util.ArrayList;
 import java.util.List;
 

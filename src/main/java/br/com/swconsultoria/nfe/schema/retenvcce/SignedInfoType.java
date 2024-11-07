@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlID;
 import javax.xml.bind.annotation.XmlSchemaType;
 import javax.xml.bind.annotation.XmlType;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -56,7 +57,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
     "signatureMethod",
     "reference"
 })
-public class SignedInfoType {
+public class SignedInfoType implements ISignedInfoType {
 
     @XmlElement(name = "CanonicalizationMethod", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     protected SignedInfoType.CanonicalizationMethod canonicalizationMethod;

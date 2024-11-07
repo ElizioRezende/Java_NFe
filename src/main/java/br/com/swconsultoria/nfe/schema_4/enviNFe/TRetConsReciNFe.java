@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema_4.enviNFe;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -66,7 +67,16 @@ import java.util.List;
     "xMsg",
     "protNFe"
 })
-public class TRetConsReciNFe {
+public class TRetConsReciNFe implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        if (getProtNFe() != null && !getProtNFe().isEmpty()) {
+            return getProtNFe().get(0);
+        } else {
+            return null;
+        }
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String tpAmb;

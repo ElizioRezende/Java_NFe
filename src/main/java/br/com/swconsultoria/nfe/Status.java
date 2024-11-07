@@ -17,6 +17,7 @@ import org.apache.axiom.om.util.AXIOMUtil;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.stream.XMLStreamException;
+import java.lang.reflect.InvocationTargetException;
 import java.rmi.RemoteException;
 
 /**
@@ -99,7 +100,8 @@ class Status {
                 return XmlNfeUtil.xmlToObject(result.getExtraElement().toString(), TRetConsStatServ.class);
             }
 
-        } catch (RemoteException | XMLStreamException | JAXBException e) {
+        } catch (RemoteException | XMLStreamException | JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException |
+                 InvocationTargetException e) {
             throw new NfeException(e.getMessage(),e);
         }
     }

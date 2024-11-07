@@ -1,5 +1,6 @@
 package br.com.swconsultoria.nfe;
 
+import br.com.swconsultoria.certificado.CertificadoService;
 import br.com.swconsultoria.nfe.dom.ConfiguracoesNfe;
 import br.com.swconsultoria.nfe.dom.enuns.DocumentoEnum;
 import br.com.swconsultoria.nfe.dom.enuns.EstadosEnum;
@@ -12,6 +13,7 @@ import br.com.swconsultoria.nfe.util.ObjetoUtil;
 import br.com.swconsultoria.nfe.util.WebServiceUtil;
 import br.com.swconsultoria.nfe.util.XmlNfeUtil;
 import br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocolo.NFeConsultaProtocolo4Stub;
+import br.com.swconsultoria.nfe.wsdl.android.SoapClient;
 import lombok.extern.java.Log;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.util.AXIOMUtil;
@@ -19,6 +21,7 @@ import org.apache.axis2.transport.http.HTTPConstants;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.stream.XMLStreamException;
+import java.lang.reflect.InvocationTargetException;
 import java.rmi.RemoteException;
 
 /**
@@ -40,6 +43,8 @@ class ConsultaXml {
     static TRetConsSitNFe consultaXml(ConfiguracoesNfe config, String chave, DocumentoEnum tipoDocumento) throws NfeException {
 
         try {
+            String xmlResult;
+            String url = WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_XML);
 
             TConsSitNFe consSitNFe = new TConsSitNFe();
             consSitNFe.setVersao(ConstantesUtil.VERSAO.NFE);
@@ -51,45 +56,50 @@ class ConsultaXml {
 
             log.info("[XML-ENVIO]: " +xml);
 
-            OMElement ome = AXIOMUtil.stringToOM(xml);
+            if (!CertificadoService.isAndroid) {
+                OMElement ome = AXIOMUtil.stringToOM(xml);
 
-            if(EstadosEnum.MS.equals(config.getEstado())) {
-                br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeDadosMsg dadosMsg = new br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeDadosMsg();
-                dadosMsg.setExtraElement(ome);
+                if(EstadosEnum.MS.equals(config.getEstado())) {
+                    br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeDadosMsg dadosMsg = new br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeDadosMsg();
+                    dadosMsg.setExtraElement(ome);
 
-                br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub stub = new br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub(
+                    br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub stub = new br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub(
                         WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_XML));
 
-                // Timeout
-                if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
-                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
-                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
+                    // Timeout
+                    if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
+                        stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
+                        stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
                             config.getTimeout());
-                }
-                br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeResultMsg result = stub.nfeConsultaNF(dadosMsg);
+                    }
+                    br.com.swconsultoria.nfe.wsdl.NFeConsultaProtocoloMS.NFeConsultaProtocolo4Stub.NfeResultMsg result = stub.nfeConsultaNF(dadosMsg);
 
-                log.info("[XML-RETORNO]: " + result.getExtraElement().toString());
-                return XmlNfeUtil.xmlToObject(result.getExtraElement().toString(), TRetConsSitNFe.class);
+                    log.info("[XML-RETORNO]: " + result.getExtraElement().toString());
+                    return XmlNfeUtil.xmlToObject(result.getExtraElement().toString(), TRetConsSitNFe.class);
+                } else {
+                    NFeConsultaProtocolo4Stub.NfeDadosMsg dadosMsg = new NFeConsultaProtocolo4Stub.NfeDadosMsg();
+                    dadosMsg.setExtraElement(ome);
+
+                    NFeConsultaProtocolo4Stub stub = new NFeConsultaProtocolo4Stub(
+                        WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_XML));
+
+                    // Timeout
+                    if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
+                        stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
+                        stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
+                            config.getTimeout());
+                    }
+                    NFeConsultaProtocolo4Stub.NfeResultMsg result = stub.nfeConsultaNF(dadosMsg);
+                    xmlResult = result.getExtraElement().toString();
+                }
             } else {
-                NFeConsultaProtocolo4Stub.NfeDadosMsg dadosMsg = new NFeConsultaProtocolo4Stub.NfeDadosMsg();
-                dadosMsg.setExtraElement(ome);
-
-                NFeConsultaProtocolo4Stub stub = new NFeConsultaProtocolo4Stub(
-                        WebServiceUtil.getUrl(config, tipoDocumento, ServicosEnum.CONSULTA_XML));
-
-                // Timeout
-                if (ObjetoUtil.verifica(config.getTimeout()).isPresent()) {
-                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.SO_TIMEOUT, config.getTimeout());
-                    stub._getServiceClient().getOptions().setProperty(HTTPConstants.CONNECTION_TIMEOUT,
-                            config.getTimeout());
-                }
-                NFeConsultaProtocolo4Stub.NfeResultMsg result = stub.nfeConsultaNF(dadosMsg);
-
-                log.info("[XML-RETORNO]: " + result.getExtraElement().toString());
-                return XmlNfeUtil.xmlToObject(result.getExtraElement().toString(), TRetConsSitNFe.class);
+                SoapClient client = new SoapClient(config);
+                xmlResult = client.nfeConsultaNF(url, xml);
             }
+            log.info("[XML-RETORNO]: " + xmlResult);
+            return XmlNfeUtil.xmlToObject(xmlResult, TRetConsSitNFe.class);
 
-        } catch (RemoteException | XMLStreamException | JAXBException e) {
+        } catch (RemoteException | XMLStreamException | JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException | InvocationTargetException e) {
             throw new NfeException(e.getMessage(),e);
         }
 

@@ -4,6 +4,7 @@
 package br.com.swconsultoria.nfe.dom;
 
 import br.com.swconsultoria.certificado.Certificado;
+import br.com.swconsultoria.certificado.CertificadoService;
 import br.com.swconsultoria.certificado.exception.CertificadoException;
 import br.com.swconsultoria.nfe.dom.enuns.AmbienteEnum;
 import br.com.swconsultoria.nfe.dom.enuns.EstadosEnum;
@@ -95,7 +96,7 @@ public class ConfiguracoesNfe {
          * -Dsun.jnu.encoding="UTF-8"
          *
          */
-        if (Integer.parseInt(System.getProperty("java.class.version").substring(0, 2)) < 56) {
+        if (!CertificadoService.isAndroid && Integer.parseInt(System.getProperty("java.class.version").substring(0, 2)) < 56) {
             try {
                 //Setando Encoding.
                 System.setProperty("file.encoding", "UTF-8");

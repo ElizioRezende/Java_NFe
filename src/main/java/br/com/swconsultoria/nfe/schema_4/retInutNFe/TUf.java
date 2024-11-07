@@ -3,6 +3,7 @@ package br.com.swconsultoria.nfe.schema_4.retInutNFe;
 
 import javax.xml.bind.annotation.XmlEnum;
 import javax.xml.bind.annotation.XmlType;
+import br.com.swconsultoria.nfe.retorno.*;
 
 
 /**

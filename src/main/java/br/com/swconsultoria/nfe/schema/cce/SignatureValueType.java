@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.cce;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -27,7 +28,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 @XmlType(name = "SignatureValueType", namespace = "http://www.w3.org/2000/09/xmldsig#", propOrder = {
     "value"
 })
-public class SignatureValueType {
+public class SignatureValueType implements ISignatureValueType {
 
     @XmlValue
     protected byte[] value;

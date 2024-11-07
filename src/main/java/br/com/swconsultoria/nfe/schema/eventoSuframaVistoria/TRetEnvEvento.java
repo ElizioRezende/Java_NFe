@@ -2,6 +2,7 @@
 package br.com.swconsultoria.nfe.schema.eventoSuframaVistoria;
 
 import javax.xml.bind.annotation.*;
+import br.com.swconsultoria.nfe.retorno.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +52,16 @@ import java.util.List;
     "xMotivo",
     "retEvento"
 })
-public class TRetEnvEvento {
+public class TRetEnvEvento implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        if (getRetEvento() != null && !getRetEvento().isEmpty()) {
+            return getRetEvento().get(0);
+        } else {
+            return null;
+        }
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String idLote;

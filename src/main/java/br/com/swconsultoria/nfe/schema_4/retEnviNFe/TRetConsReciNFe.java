@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
+import br.com.swconsultoria.nfe.retorno.*;
 
 
 /**
@@ -70,7 +71,16 @@ import javax.xml.bind.annotation.XmlType;
     "xMsg",
     "protNFe"
 })
-public class TRetConsReciNFe {
+public class TRetConsReciNFe implements IRetorno {
+
+    @Override
+    public ITProtNFe getOriginalProtNFe() {
+        if (getProtNFe() != null && !getProtNFe().isEmpty()) {
+            return getProtNFe().get(0);
+        } else {
+            return null;
+        }
+    }
 
     @XmlElement(namespace = "http://www.portalfiscal.inf.br/nfe", required = true)
     protected String tpAmb;

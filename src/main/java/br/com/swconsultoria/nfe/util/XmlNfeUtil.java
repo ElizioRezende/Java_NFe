@@ -3,7 +3,10 @@
  */
 package br.com.swconsultoria.nfe.util;
 
+import br.com.swconsultoria.certificado.CertificadoService;
 import br.com.swconsultoria.nfe.exception.NfeException;
+import br.com.swconsultoria.nfe.retorno.ISignatureType;
+import br.com.swconsultoria.nfe.retorno.ITProtNFe;
 import br.com.swconsultoria.nfe.schema.consCad.TConsCad;
 import br.com.swconsultoria.nfe.schema.distdfeint.DistDFeInt;
 import br.com.swconsultoria.nfe.schema.envEventoCancNFe.TEnvEvento;
@@ -26,6 +29,8 @@ import javax.xml.datatype.XMLGregorianCalendar;
 import javax.xml.namespace.QName;
 import javax.xml.transform.stream.StreamSource;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,11 +40,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Base64;
-import java.util.GregorianCalendar;
-import java.util.List;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
+import com.google.gson.ExclusionStrategy;
+import com.google.gson.FieldAttributes;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.json.JSONObject;
 
 /**
  * Classe Responsavel por Metodos referentes ao XML
@@ -101,8 +108,210 @@ public class XmlNfeUtil {
      * @param classe
      * @return T
      */
-    public static <T> T xmlToObject(String xml, Class<T> classe) throws JAXBException {
-        return JAXB.unmarshal(new StreamSource(new StringReader(xml)), classe);
+    public static <T> T xmlToObject(String xml, Class<T> classe) throws InstantiationException, ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        if (CertificadoService.isAndroid) {
+            return xmlToObjectAndroid(xml, classe);
+        } else {
+            return JAXB.unmarshal(new StreamSource(new StringReader(xml)), classe);
+        }
+    }
+
+    private static <T> T xmlToObjectAndroid(String xml, Class<T> classe) throws InstantiationException, ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+
+        if (classe.equals(TNFe.class)) {
+            return (T) tEnviNFeXmlToObject(xml);
+        } else if (classe.equals(TRetEnviNFe.class)) {
+            return (T) tRetEnviNFeXmlToObject(xml);
+        } else if (classe.equals(br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe.class)) {
+            return (T) tRetConsReciNFeXmlToObject(xml);
+        } else if (classe.equals(TRetConsSitNFe.class)) {
+            return (T) tRetConsSitNFeXmlToObject(xml);
+        } else if (classe.equals(TRetEnvEvento.class)) {
+            return (T) tRetEnvEventoXmlToObject(xml);
+        }
+
+        throw new ClassNotFoundException(classe.getSimpleName());
+    }
+
+    private static Gson gsonWithExclusionStrategy() {
+        GsonBuilder gsonBuilder = new GsonBuilder();
+
+        ExclusionStrategy strategy = new ExclusionStrategy() {
+
+            @Override
+            public boolean shouldSkipField(FieldAttributes fieldAttributes) {
+
+                String fieldName = fieldAttributes.getName();
+
+                if (fieldName.equalsIgnoreCase("SignatureValue")) {
+                    return true;
+                } else if (fieldName.equals("X509Certificate")) {
+                    return true;
+                } else if (fieldName.equals("DigestValue")) {
+                    return true;
+                } else if (fieldName.equalsIgnoreCase("digVal")) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            @Override
+            public boolean shouldSkipClass(Class<?> aClass) {
+                return false;
+            }
+        };
+        gsonBuilder.setExclusionStrategies(strategy);
+
+        return gsonBuilder.create();
+    }
+
+    private static JSONObject processarXml(String xml, String... forceList) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, InstantiationException {
+
+        Class<?> builderClazz = Class.forName("fr.arnaudguyon.xmltojsonlib.XmlToJson$Builder");
+
+        Object obj = builderClazz.getConstructor(String.class).newInstance(xml);
+
+        if (forceList != null && forceList.length > 0) {
+
+            Method forceListMethod = builderClazz.getMethod("forceList", String.class);
+
+            for (String param: forceList) {
+                forceListMethod.invoke(obj, param);
+            }
+        }
+
+        Method buildMethod = builderClazz.getMethod("build");
+
+        Object xmlToJson = buildMethod.invoke(obj);
+
+        Class<?> xmlToJsonClazz = Class.forName("fr.arnaudguyon.xmltojsonlib.XmlToJson");
+
+        Method toJsonMethod = xmlToJsonClazz.getMethod("toJson");
+
+        return (JSONObject) toJsonMethod.invoke(xmlToJson);
+    }
+
+    private static TNFe tEnviNFeXmlToObject(String xml) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        JSONObject jsonObject = processarXml(
+            xml, "/NFe", "/NFe/infNFe/det", "/NFe/infNFe/autXML", "/NFe/infNFe/pag/detPag"
+        ).getJSONArray("NFe").getJSONObject(0);
+
+        String json = jsonObject.toString();
+
+        Gson gson = gsonWithExclusionStrategy();
+        TNFe nfe = gson.fromJson(json, TNFe.class);
+
+        setSignatureValues(nfe.getSignature(), jsonObject);
+
+        return nfe;
+    }
+
+    private static TRetEnviNFe tRetEnviNFeXmlToObject(String xml) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        JSONObject jsonObject = processarXml(xml).getJSONObject("retEnviNFe");
+
+        String json = jsonObject.toString();
+
+        Gson gson = gsonWithExclusionStrategy();
+        TRetEnviNFe nfe = gson.fromJson(json, TRetEnviNFe.class);
+
+        ITProtNFe tProtNFe = nfe.getOriginalProtNFe();
+
+        setRetornoValues(tProtNFe, jsonObject);
+
+        return nfe;
+    }
+
+    private static br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe tRetConsReciNFeXmlToObject(String xml) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        JSONObject jsonObject = processarXml(xml).getJSONObject("retConsReciNFe");
+
+        String json = jsonObject.toString();
+
+        Gson gson = gsonWithExclusionStrategy();
+        br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe nfe = gson.fromJson(
+            json, br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe.class
+        );
+
+        ITProtNFe tProtNFe = nfe.getOriginalProtNFe();
+
+        setRetornoValues(tProtNFe, jsonObject);
+
+        return nfe;
+    }
+
+    private static TRetConsSitNFe tRetConsSitNFeXmlToObject(String xml) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        JSONObject jsonObject = processarXml(xml).getJSONObject("retConsSitNFe");
+
+        String json = jsonObject.toString();
+
+        Gson gson = gsonWithExclusionStrategy();
+        TRetConsSitNFe nfe = gson.fromJson(json, TRetConsSitNFe.class);
+
+        ITProtNFe tProtNFe = nfe.getOriginalProtNFe();
+
+        setRetornoValues(tProtNFe, jsonObject);
+
+        return nfe;
+    }
+
+    private static TRetEnvEvento tRetEnvEventoXmlToObject(String xml) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        JSONObject jsonObject = processarXml(xml).getJSONObject("retEnvEvento");
+
+        String json = jsonObject.toString();
+
+        Gson gson = gsonWithExclusionStrategy();
+        TRetEnvEvento nfe = gson.fromJson(json, TRetEnvEvento.class);
+
+        ITProtNFe tProtNFe = nfe.getOriginalProtNFe();
+
+        setRetornoValues(tProtNFe, jsonObject);
+
+        return nfe;
+    }
+
+    private static void setRetornoValues(ITProtNFe tProtNFe, JSONObject jsonObject) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        if (tProtNFe != null && jsonObject.has("protNFe")) {
+
+            JSONObject protNFeJson = jsonObject.getJSONObject("protNFe");
+
+            if (protNFeJson.has("infProt") && protNFeJson.getJSONObject("infProt").has("digVal")) {
+                String digVal = protNFeJson.getJSONObject("infProt").getString("digVal");
+                tProtNFe.getInfProt().setDigVal(decodeAndroidBase64(digVal));
+            }
+
+            setSignatureValues(tProtNFe.getSignature(), protNFeJson);
+        }
+    }
+
+    private static void setSignatureValues(ISignatureType signatureType, JSONObject jsonObject) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        if (signatureType != null && jsonObject.has("Signature")) {
+
+            JSONObject signature = jsonObject.getJSONObject("Signature");
+
+            String signatureValue = signature.getString("SignatureValue");
+            String digestValue = signature.getJSONObject("SignedInfo").getJSONObject("Reference").getString("DigestValue");
+            String x509Certificate = signature.getJSONObject("KeyInfo").getJSONObject("X509Data").getString("X509Certificate");
+
+            signatureType.setNewSignatureValue();
+
+            signatureType.getSignatureValue().setValue(decodeAndroidBase64(signatureValue));
+            signatureType.getSignedInfo().getReference().setDigestValue(decodeAndroidBase64(digestValue));
+            signatureType.getKeyInfo().getX509Data().setX509Certificate(decodeAndroidBase64(x509Certificate));
+        }
+    }
+
+    private static byte[] decodeAndroidBase64(String value) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
+        Class<?> clazz = Class.forName("android.util.Base64");
+
+        Method method = clazz.getMethod("decode", String.class, int.class);
+
+        return (byte[]) method.invoke(null, value, 0);
     }
 
     /**
@@ -113,239 +322,305 @@ public class XmlNfeUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static <T> String objectToXml(Object obj) throws JAXBException, NfeException {
+    public static <T> String objectToXml(Object obj) throws JAXBException, NfeException, InstantiationException, ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         return objectToXml(obj, Charset.forName("UTF-8"));
     }
 
-    public static <T> String objectToXml(Object obj, Charset encode) throws JAXBException, NfeException {
+    public static <T> String objectToXml(Object obj, Charset encode) throws JAXBException, NfeException, InstantiationException, ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
 
-        JAXBContext context;
-        JAXBElement<?> element;
+        StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
 
-        switch (obj.getClass().getSimpleName()) {
+        if (CertificadoService.isAndroid) {
 
-            case STATUS:
-                context = JAXBContext.newInstance(TConsStatServ.class);
-                element = new br.com.swconsultoria.nfe.schema_4.consStatServ.ObjectFactory().createConsStatServ((TConsStatServ) obj);
-                break;
+            List<String> forcedAttributes = new ArrayList<>(), forcedContents = new ArrayList<>();
 
-            case ENVIO_NFE:
-                context = JAXBContext.newInstance(TEnviNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.enviNFe.ObjectFactory().createEnviNFe((TEnviNFe) obj);
-                break;
+            JSONObject jsonObject = new JSONObject();
 
-            case RETORNO_ENVIO:
-                context = JAXBContext.newInstance(TRetEnviNFe.class);
-                element = XsdUtil.enviNfe.createTRetEnviNFe((TRetEnviNFe) obj);
-                break;
+            switch (obj.getClass().getSimpleName()) {
 
-            case SITUACAO_NFE:
-                context = JAXBContext.newInstance(TConsSitNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.consSitNFe.ObjectFactory().createConsSitNFe((TConsSitNFe) obj);
-                break;
+                case SITUACAO_NFE:
+                    TConsSitNFe modelo = (TConsSitNFe) obj;
 
-            case DIST_DFE:
-                context = JAXBContext.newInstance(DistDFeInt.class);
-                element = XsdUtil.distDFeInt.createDistDFeInt((DistDFeInt) obj);
-                break;
+                    jsonObject.put("tpAmb", modelo.getTpAmb());
+                    jsonObject.put("xServ", modelo.getXServ());
+                    jsonObject.put("chNFe", modelo.getChNFe());
+                    jsonObject.put("xmlns", "http://www.portalfiscal.inf.br/nfe");
 
-            case TCONSRECINFE:
-                context = JAXBContext.newInstance(TConsReciNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.consReciNFe.ObjectFactory().createConsReciNFe((TConsReciNFe) obj);
-                break;
+                    jsonObject = new JSONObject().put("consSitNFe", jsonObject);
+                    forcedAttributes.add("/consSitNFe/versao");
+                    forcedAttributes.add("/consSitNFe/xmlns");
+                    break;
+            }
 
-            case TCONS_CAD:
-                context = JAXBContext.newInstance(TConsCad.class);
-                element = new br.com.swconsultoria.nfe.schema.consCad.ObjectFactory().createConsCad((TConsCad) obj);
-                break;
+            xml.append(objectToXmlAndroid(jsonObject, forcedAttributes, forcedContents));
 
-            case INUTILIZACAO:
-                context = JAXBContext.newInstance(TInutNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.inutNFe.ObjectFactory().createInutNFe((TInutNFe) obj);
-                break;
+            if ((obj.getClass().getSimpleName().equals(TPROCEVENTO))) {
+                return replacesNfe(xml.toString().replaceAll("procEvento", "procEventoNFe"));
+            } else {
+                return replacesNfe(xml.toString());
+            }
+        } else {
+            JAXBContext context;
+            JAXBElement<?> element;
 
-            case RET_INUT_NFE:
-                context = JAXBContext.newInstance(TRetInutNFe.class);
-                element = XsdUtil.inutNfe.createTRetInutNfe((TRetInutNFe) obj);
-                break;
+            switch (obj.getClass().getSimpleName()) {
 
-            case SITUACAO_NFE_RET:
-                context = JAXBContext.newInstance(TRetConsSitNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.retConsSitNFe.ObjectFactory().createRetConsSitNFe((TRetConsSitNFe) obj);
-                break;
+                case STATUS:
+                    context = JAXBContext.newInstance(TConsStatServ.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.consStatServ.ObjectFactory().createConsStatServ((TConsStatServ) obj);
+                    break;
 
-            case RET_RECIBO_NFE:
-                context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe.class);
-                element = new br.com.swconsultoria.nfe.schema_4.retConsReciNFe.ObjectFactory().createRetConsReciNFe((br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe) obj);
-                break;
+                case ENVIO_NFE:
+                    context = JAXBContext.newInstance(TEnviNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.enviNFe.ObjectFactory().createEnviNFe((TEnviNFe) obj);
+                    break;
 
-            case RET_STATUS_SERVICO:
-                context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsStatServ.TRetConsStatServ.class);
-                element = new br.com.swconsultoria.nfe.schema_4.retConsStatServ.ObjectFactory().createRetConsStatServ((br.com.swconsultoria.nfe.schema_4.retConsStatServ.TRetConsStatServ) obj);
-                break;
+                case RETORNO_ENVIO:
+                    context = JAXBContext.newInstance(TRetEnviNFe.class);
+                    element = XsdUtil.enviNfe.createTRetEnviNFe((TRetEnviNFe) obj);
+                    break;
 
-            case RET_CONS_CAD:
-                context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.retConsCad.TRetConsCad.class);
-                element = new br.com.swconsultoria.nfe.schema.retConsCad.ObjectFactory().createRetConsCad((br.com.swconsultoria.nfe.schema.retConsCad.TRetConsCad) obj);
-                break;
+                case SITUACAO_NFE:
+                    context = JAXBContext.newInstance(TConsSitNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.consSitNFe.ObjectFactory().createConsSitNFe((TConsSitNFe) obj);
+                    break;
 
-            case RET_DIST_DFE:
-                context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.retdistdfeint.RetDistDFeInt.class);
-                element = XsdUtil.distDFeInt.createRetDistDFeInt((br.com.swconsultoria.nfe.schema.retdistdfeint.RetDistDFeInt) obj);
-                break;
+                case DIST_DFE:
+                    context = JAXBContext.newInstance(DistDFeInt.class);
+                    element = XsdUtil.distDFeInt.createDistDFeInt((DistDFeInt) obj);
+                    break;
 
-            case TPROCEVENTO:
-                switch (obj.getClass().getName()) {
-                    case TPROCCANCELAR:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancNFe.TProcEvento.class);
-                        element = XsdUtil.envEventoCancNFe.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoCancNFe.TProcEvento) obj);
-                        break;
-                    case TPROCATORINTERESSADO:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TProcEvento.class);
-                        element = XsdUtil.envEventoAtorInteressado.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TProcEvento) obj);
-                        break;
-                    case TPROCCANCELARSUBST:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TProcEvento.class);
-                        element = XsdUtil.envEventoCancSubst.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TProcEvento) obj);
-                        break;
-                    case TPROCCCE:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TProcEvento.class);
-                        element =  XsdUtil.envcce.createTProcEvento((br.com.swconsultoria.nfe.schema.envcce.TProcEvento) obj);
-                        break;
-                    case TPROCEPEC:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TProcEvento.class);
-                        element = XsdUtil.epec.createTProcEvento((br.com.swconsultoria.nfe.schema.envEpec.TProcEvento) obj);
-                        break;
-                    case TPROCMAN:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TProcEvento.class);
-                        element = XsdUtil.manifestacao.createTProcEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TProcEvento) obj);
-                        break;
-                    default:
-                        throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
-                }
+                case TCONSRECINFE:
+                    context = JAXBContext.newInstance(TConsReciNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.consReciNFe.ObjectFactory().createConsReciNFe((TConsReciNFe) obj);
+                    break;
 
-                break;
+                case TCONS_CAD:
+                    context = JAXBContext.newInstance(TConsCad.class);
+                    element = new br.com.swconsultoria.nfe.schema.consCad.ObjectFactory().createConsCad((TConsCad) obj);
+                    break;
 
-            case NFEPROC:
-                context = JAXBContext.newInstance(TNfeProc.class);
-                element = XsdUtil.enviNfe.createTNfeProc((TNfeProc) obj);
-                break;
+                case INUTILIZACAO:
+                    context = JAXBContext.newInstance(TInutNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.inutNFe.ObjectFactory().createInutNFe((TInutNFe) obj);
+                    break;
 
-            case NFE:
-                context = JAXBContext.newInstance(TNFe.class);
-                element = new JAXBElement<>(new QName("http://www.portalfiscal.inf.br/nfe", "NFe"), TNFe.class, null, (br.com.swconsultoria.nfe.schema_4.enviNFe.TNFe) obj);
-                break;
+                case RET_INUT_NFE:
+                    context = JAXBContext.newInstance(TRetInutNFe.class);
+                    element = XsdUtil.inutNfe.createTRetInutNfe((TRetInutNFe) obj);
+                    break;
 
-            case TPROCINUT:
-                context = JAXBContext.newInstance(TProcInutNFe.class);
-                element = XsdUtil.inutNfe.createTProcInutNFe((TProcInutNFe) obj);
-                break;
+                case SITUACAO_NFE_RET:
+                    context = JAXBContext.newInstance(TRetConsSitNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.retConsSitNFe.ObjectFactory().createRetConsSitNFe((TRetConsSitNFe) obj);
+                    break;
 
-            case EVENTO:
-                switch (obj.getClass().getName()) {
-                    case CANCELAR:
-                        context = JAXBContext.newInstance(TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envEventoCancNFe.ObjectFactory().createEnvEvento((TEnvEvento) obj);
-                        break;
-                    case CANCELAR_SUBSTITUICAO:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envEventoCancSubst.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TEnvEvento) obj);
-                        break;
-                    case CCE:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envcce.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envcce.TEnvEvento) obj);
-                        break;
-                    case EPEC:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envEpec.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEpec.TEnvEvento) obj);
-                        break;
-                    case MANIFESTAR:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envConfRecebto.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TEnvEvento) obj);
-                        break;
-                    case ATOR_INTERESSADO:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TEnvEvento.class);
-                        element = new br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TEnvEvento) obj);
-                        break;
-                    default:
-                        throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
-                }
-                break;
+                case RET_RECIBO_NFE:
+                    context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.retConsReciNFe.ObjectFactory().createRetConsReciNFe((br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TRetConsReciNFe) obj);
+                    break;
 
-            case RET_ENV_EVENTO:
-                switch (obj.getClass().getName()) {
-                    case RET_CANCELAR:
-                        context = JAXBContext.newInstance(TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((TRetEnvEvento) obj);
-                        break;
-                    case RET_CANCELAR_SUBSTITUICAO:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEnvEvento) obj);
-                        break;
-                    case RET_CCE:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envcce.TRetEnvEvento) obj);
-                        break;
-                    case RET_EPEC:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEpec.TRetEnvEvento) obj);
-                        break;
-                    case RET_MANIFESTAR:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TRetEnvEvento) obj);
-                        break;
-                    case RET_ATOR_INTERESSADO:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TRetEnvEvento.class);
-                        element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TRetEnvEvento) obj);
-                        break;
-                    default:
-                        throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
-                }
-                break;
+                case RET_STATUS_SERVICO:
+                    context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsStatServ.TRetConsStatServ.class);
+                    element = new br.com.swconsultoria.nfe.schema_4.retConsStatServ.ObjectFactory().createRetConsStatServ((br.com.swconsultoria.nfe.schema_4.retConsStatServ.TRetConsStatServ) obj);
+                    break;
 
-            case TProtNFe:
-                switch (obj.getClass().getName()) {
-                    case TProtEnvi:
-                        context = JAXBContext.newInstance(TProtNFe.class);
-                        element = XsdUtil.enviNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.enviNFe.TProtNFe) obj);
-                        break;
-                    case TProtCons:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsSitNFe.TProtNFe.class);
-                        element = XsdUtil.retConsSitNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.retConsSitNFe.TProtNFe) obj);
-                        break;
-                    case TProtReci:
-                        context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TProtNFe.class);
-                        element = XsdUtil.retConsReciNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TProtNFe) obj);
-                        break;
-                    default:
-                        throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
-                }
-                break;
+                case RET_CONS_CAD:
+                    context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.retConsCad.TRetConsCad.class);
+                    element = new br.com.swconsultoria.nfe.schema.retConsCad.ObjectFactory().createRetConsCad((br.com.swconsultoria.nfe.schema.retConsCad.TRetConsCad) obj);
+                    break;
 
-            default:
-                throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+                case RET_DIST_DFE:
+                    context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.retdistdfeint.RetDistDFeInt.class);
+                    element = XsdUtil.distDFeInt.createRetDistDFeInt((br.com.swconsultoria.nfe.schema.retdistdfeint.RetDistDFeInt) obj);
+                    break;
+
+                case TPROCEVENTO:
+                    switch (obj.getClass().getName()) {
+                        case TPROCCANCELAR:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancNFe.TProcEvento.class);
+                            element = XsdUtil.envEventoCancNFe.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoCancNFe.TProcEvento) obj);
+                            break;
+                        case TPROCATORINTERESSADO:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TProcEvento.class);
+                            element = XsdUtil.envEventoAtorInteressado.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TProcEvento) obj);
+                            break;
+                        case TPROCCANCELARSUBST:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TProcEvento.class);
+                            element = XsdUtil.envEventoCancSubst.createTProcEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TProcEvento) obj);
+                            break;
+                        case TPROCCCE:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TProcEvento.class);
+                            element =  XsdUtil.envcce.createTProcEvento((br.com.swconsultoria.nfe.schema.envcce.TProcEvento) obj);
+                            break;
+                        case TPROCEPEC:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TProcEvento.class);
+                            element = XsdUtil.epec.createTProcEvento((br.com.swconsultoria.nfe.schema.envEpec.TProcEvento) obj);
+                            break;
+                        case TPROCMAN:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TProcEvento.class);
+                            element = XsdUtil.manifestacao.createTProcEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TProcEvento) obj);
+                            break;
+                        default:
+                            throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+                    }
+
+                    break;
+
+                case NFEPROC:
+                    context = JAXBContext.newInstance(TNfeProc.class);
+                    element = XsdUtil.enviNfe.createTNfeProc((TNfeProc) obj);
+                    break;
+
+                case NFE:
+                    context = JAXBContext.newInstance(TNFe.class);
+                    element = new JAXBElement<>(new QName("http://www.portalfiscal.inf.br/nfe", "NFe"), TNFe.class, null, (br.com.swconsultoria.nfe.schema_4.enviNFe.TNFe) obj);
+                    break;
+
+                case TPROCINUT:
+                    context = JAXBContext.newInstance(TProcInutNFe.class);
+                    element = XsdUtil.inutNfe.createTProcInutNFe((TProcInutNFe) obj);
+                    break;
+
+                case EVENTO:
+                    switch (obj.getClass().getName()) {
+                        case CANCELAR:
+                            context = JAXBContext.newInstance(TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envEventoCancNFe.ObjectFactory().createEnvEvento((TEnvEvento) obj);
+                            break;
+                        case CANCELAR_SUBSTITUICAO:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envEventoCancSubst.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TEnvEvento) obj);
+                            break;
+                        case CCE:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envcce.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envcce.TEnvEvento) obj);
+                            break;
+                        case EPEC:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envEpec.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEpec.TEnvEvento) obj);
+                            break;
+                        case MANIFESTAR:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envConfRecebto.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TEnvEvento) obj);
+                            break;
+                        case ATOR_INTERESSADO:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TEnvEvento.class);
+                            element = new br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.ObjectFactory().createEnvEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TEnvEvento) obj);
+                            break;
+                        default:
+                            throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+                    }
+                    break;
+
+                case RET_ENV_EVENTO:
+                    switch (obj.getClass().getName()) {
+                        case RET_CANCELAR:
+                            context = JAXBContext.newInstance(TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((TRetEnvEvento) obj);
+                            break;
+                        case RET_CANCELAR_SUBSTITUICAO:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEnvEvento) obj);
+                            break;
+                        case RET_CCE:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envcce.TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envcce.TRetEnvEvento) obj);
+                            break;
+                        case RET_EPEC:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEpec.TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEpec.TRetEnvEvento) obj);
+                            break;
+                        case RET_MANIFESTAR:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envConfRecebto.TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envConfRecebto.TRetEnvEvento) obj);
+                            break;
+                        case RET_ATOR_INTERESSADO:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TRetEnvEvento.class);
+                            element = XsdUtil.retEnvEvento.createTRetEnvEvento((br.com.swconsultoria.nfe.schema.envEventoAtorInteressado.TRetEnvEvento) obj);
+                            break;
+                        default:
+                            throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+                    }
+                    break;
+
+                case TProtNFe:
+                    switch (obj.getClass().getName()) {
+                        case TProtEnvi:
+                            context = JAXBContext.newInstance(TProtNFe.class);
+                            element = XsdUtil.enviNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.enviNFe.TProtNFe) obj);
+                            break;
+                        case TProtCons:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsSitNFe.TProtNFe.class);
+                            element = XsdUtil.retConsSitNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.retConsSitNFe.TProtNFe) obj);
+                            break;
+                        case TProtReci:
+                            context = JAXBContext.newInstance(br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TProtNFe.class);
+                            element = XsdUtil.retConsReciNfe.createTProtNFe((br.com.swconsultoria.nfe.schema_4.retConsReciNFe.TProtNFe) obj);
+                            break;
+                        default:
+                            throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+                    }
+                    break;
+
+                default:
+                    throw new NfeException("Objeto não mapeado no XmlUtil:" + obj.getClass().getSimpleName());
+            }
+            assert context != null;
+            Marshaller marshaller = context.createMarshaller();
+
+            marshaller.setProperty("jaxb.encoding", "Unicode");
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.FALSE);
+            marshaller.setProperty(Marshaller.JAXB_FRAGMENT, Boolean.TRUE);
+
+            StringWriter sw = new StringWriter(4096);
+
+            String encodeXml = encode == null || !Charset.isSupported(encode.displayName()) ? "UTF-8" : encode.displayName();
+
+            sw.append("<?xml version=\"1.0\" encoding=\"" + encodeXml + "\"?>");
+
+            marshaller.marshal(element, sw);
+
+            if ((obj.getClass().getSimpleName().equals(TPROCEVENTO))) {
+                return replacesNfe(sw.toString().replace("procEvento", "procEventoNFe"));
+            }
+
+            return replacesNfe(sw.toString());
         }
-        assert context != null;
-        Marshaller marshaller = context.createMarshaller();
 
-        marshaller.setProperty("jaxb.encoding", "Unicode");
-        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.FALSE);
-        marshaller.setProperty(Marshaller.JAXB_FRAGMENT, Boolean.TRUE);
+    }
 
-        StringWriter sw = new StringWriter(4096);
+    private static String objectToXmlAndroid(JSONObject obj, List<String> forcedAttributes, List<String> forcedContents) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException, InstantiationException {
 
-        String encodeXml = encode == null || !Charset.isSupported(encode.displayName()) ? "UTF-8" : encode.displayName();
+        Class<?> builderClazz = Class.forName("fr.arnaudguyon.xmltojsonlib.JsonToXml$Builder");
 
-        sw.append("<?xml version=\"1.0\" encoding=\"" + encodeXml + "\"?>");
+        Object newInstance = builderClazz.getConstructor(JSONObject.class).newInstance(obj);
 
-        marshaller.marshal(element, sw);
-
-        if ((obj.getClass().getSimpleName().equals(TPROCEVENTO))) {
-            return replacesNfe(sw.toString().replace("procEvento", "procEventoNFe"));
+        if (forcedAttributes != null && !forcedAttributes.isEmpty()) {
+            Method forcedAttributeMethod = builderClazz.getMethod("forceAttribute", String.class);
+            for (String param: forcedAttributes) {
+                forcedAttributeMethod.invoke(newInstance, param);
+            }
         }
 
-        return replacesNfe(sw.toString());
+        if (forcedContents != null && !forcedContents.isEmpty()) {
+            Method forcedContentMethod = builderClazz.getMethod("forceContent", String.class);
+            for (String param: forcedContents) {
+                forcedContentMethod.invoke(newInstance, param);
+            }
+        }
 
+        Method buildMethod = builderClazz.getMethod("build");
+
+        Object jsonToXml = buildMethod.invoke(newInstance);
+
+        Class<?> xmlToJsonClazz = Class.forName("fr.arnaudguyon.xmltojsonlib.JsonToXml");
+
+        Method toJsonMethod = xmlToJsonClazz.getMethod("toString");
+
+        String xml = ((String) toJsonMethod.invoke(jsonToXml)).trim();
+
+        return xml.substring(xml.indexOf('>') + 1);
     }
 
     public static String gZipToXml(byte[] conteudo) throws IOException {
@@ -364,7 +639,7 @@ public class XmlNfeUtil {
         return outStr.toString();
     }
 
-    public static String criaNfeProc(TEnviNFe enviNfe, Object retorno) throws JAXBException, NfeException {
+    public static String criaNfeProc(TEnviNFe enviNfe, Object retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
         TNfeProc nfeProc = new TNfeProc();
         nfeProc.setVersao("4.00");

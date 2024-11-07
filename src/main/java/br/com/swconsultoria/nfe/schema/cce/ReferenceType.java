@@ -1,6 +1,8 @@
 
 package br.com.swconsultoria.nfe.schema.cce;
 
+import br.com.swconsultoria.nfe.retorno.*;
+
 import javax.xml.bind.annotation.*;
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -50,7 +52,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
     "digestMethod",
     "digestValue"
 })
-public class ReferenceType {
+public class ReferenceType implements IReferenceType {
 
     @XmlElement(name = "Transforms", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     protected TransformsType transforms;

@@ -9,6 +9,7 @@ import br.com.swconsultoria.nfe.schema.envEventoCancNFe.TRetEnvEvento;
 import br.com.swconsultoria.nfe.util.XmlNfeUtil;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * @author Samuel Oliveira - samuel@swconsultoria.com.br Data: 28/09/2017 - 11:11
@@ -28,7 +29,7 @@ class Cancelar {
 
 			return XmlNfeUtil.xmlToObject(xml, TRetEnvEvento.class);
 
-		} catch (JAXBException e) {
+		} catch (JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException | InvocationTargetException e) {
 			throw new NfeException(e.getMessage(),e);
 		}
 
@@ -47,7 +48,7 @@ class Cancelar {
 
 			return XmlNfeUtil.xmlToObject(xml, br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEnvEvento.class);
 
-		} catch (JAXBException e) {
+		} catch (JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException | InvocationTargetException e) {
 			throw new NfeException(e.getMessage(),e);
 		}
 

@@ -10,6 +10,7 @@ import br.com.swconsultoria.nfe.schema_4.inutNFe.TProcInutNFe;
 import br.com.swconsultoria.nfe.schema_4.inutNFe.TRetInutNFe;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -75,7 +76,7 @@ public class InutilizacaoUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static String criaProcInutilizacao(ConfiguracoesNfe configuracoesNfe, TInutNFe inutNFe, TRetInutNFe retorno) throws JAXBException, NfeException {
+    public static String criaProcInutilizacao(ConfiguracoesNfe configuracoesNfe, TInutNFe inutNFe, TRetInutNFe retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
 
         String xml = XmlNfeUtil.objectToXml(inutNFe, configuracoesNfe.getEncode());

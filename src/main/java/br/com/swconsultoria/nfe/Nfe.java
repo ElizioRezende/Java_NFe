@@ -16,6 +16,11 @@ import br.com.swconsultoria.nfe.schema_4.retConsSitNFe.TRetConsSitNFe;
 import br.com.swconsultoria.nfe.schema_4.retConsStatServ.TRetConsStatServ;
 import br.com.swconsultoria.nfe.util.ConfiguracoesUtil;
 
+import javax.xml.bind.JAXBException;
+import javax.xml.stream.XMLStreamException;
+import java.lang.reflect.InvocationTargetException;
+import java.rmi.RemoteException;
+
 /**
  * @author Samuel Oliveira - samuel@swconsultoria.com.br - www.swconsultoria.com.br
  */
@@ -125,6 +130,10 @@ public class Nfe {
 
     }
 
+    public static String montaNfe(ConfiguracoesNfe configuracoesNfe, String cnpj, String xml, boolean valida) throws NfeException {
+        return Enviar.montaNfe(ConfiguracoesUtil.iniciaConfiguracoes(configuracoesNfe, cnpj), xml, valida);
+    }
+
 
     /**
      * Metodo para Enviar a NFE
@@ -138,6 +147,17 @@ public class Nfe {
 
         return Enviar.enviaNfe(ConfiguracoesUtil.iniciaConfiguracoes(configuracoesNfe, enviNFe.getNFe().get(0).getInfNFe().getEmit().getCNPJ()), enviNFe, tipoDocumento);
 
+    }
+
+    public static TRetEnviNFe enviarNfe(
+        ConfiguracoesNfe configuracoesNfe, String cnpj, String xml, DocumentoEnum tipoDocumento
+    ) throws NfeException {
+        try {
+            return Enviar.enviaNfe(ConfiguracoesUtil.iniciaConfiguracoes(configuracoesNfe, cnpj), xml, tipoDocumento);
+        } catch (RemoteException | XMLStreamException | JAXBException | InstantiationException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException |
+                 InvocationTargetException e) {
+            throw new NfeException(e.getMessage(), e);
+        }
     }
 
     /**

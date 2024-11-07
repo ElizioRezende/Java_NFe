@@ -1,10 +1,13 @@
 
 package br.com.swconsultoria.nfe.schema.envEventoCancNFe;
 
+import br.com.swconsultoria.nfe.retorno.*;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
+import br.com.swconsultoria.nfe.retorno.*;
 
 
 /**
@@ -30,7 +33,7 @@ import javax.xml.bind.annotation.XmlType;
 @XmlType(name = "X509DataType", namespace = "http://www.w3.org/2000/09/xmldsig#", propOrder = {
     "x509Certificate"
 })
-public class X509DataType {
+public class X509DataType implements IX509DataType {
 
     @XmlElement(name = "X509Certificate", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     protected byte[] x509Certificate;

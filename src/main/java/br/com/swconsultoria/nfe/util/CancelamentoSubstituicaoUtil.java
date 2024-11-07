@@ -12,6 +12,7 @@ import br.com.swconsultoria.nfe.schema.envEventoCancSubst.TProcEvento;
 import br.com.swconsultoria.nfe.schema.envEventoCancSubst.TRetEvento;
 
 import javax.xml.bind.JAXBException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.List;
 
@@ -101,7 +102,7 @@ public class CancelamentoSubstituicaoUtil {
      * @throws JAXBException
      * @throws NfeException
      */
-    public static String criaProcEventoCancelamento(ConfiguracoesNfe config, TEnvEvento enviEvento, TRetEvento retorno) throws JAXBException, NfeException {
+    public static String criaProcEventoCancelamento(ConfiguracoesNfe config, TEnvEvento enviEvento, TRetEvento retorno) throws JAXBException, NfeException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException, ClassNotFoundException {
 
         String xml = XmlNfeUtil.objectToXml(enviEvento, config.getEncode());
         xml = xml.replace(" xmlns:ns2=\"http://www.w3.org/2000/09/xmldsig#\"", "")
