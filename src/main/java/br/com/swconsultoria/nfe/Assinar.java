@@ -7,12 +7,16 @@ import br.com.swconsultoria.nfe.dom.ConfiguracoesNfe;
 import br.com.swconsultoria.nfe.dom.enuns.AssinaturaEnum;
 import br.com.swconsultoria.nfe.exception.NfeException;
 import br.com.swconsultoria.nfe.util.ObjetoUtil;
+import br.com.swconsultoria.nfe.util.XmlNfeUtil;
 import org.apache.xml.security.c14n.Canonicalizer;
 import org.apache.xml.security.exceptions.XMLSecurityException;
+import org.apache.xml.security.keys.content.x509.XMLX509Certificate;
 import org.apache.xml.security.transforms.Transforms;
+import org.apache.xml.security.utils.XMLUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
@@ -35,7 +39,9 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.lang.reflect.InvocationTargetException;
 import java.security.*;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,14 +98,15 @@ public class Assinar {
             return outputXML(document);
         } catch (SAXException | IOException | ParserConfigurationException | NoSuchAlgorithmException |
                  InvalidAlgorithmParameterException | KeyStoreException | UnrecoverableEntryException |
-                 CertificadoException | MarshalException | XMLSignatureException | XMLSecurityException e) {
+                 CertificadoException | MarshalException | XMLSignatureException | XMLSecurityException |
+                 CertificateEncodingException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException | InvocationTargetException e) {
             throw new NfeException("Erro ao Assinar Nfe" + e.getMessage(),e);
         }
     }
 
     private static void assinarNFeAndroid(
         AssinaturaEnum tipoAssinatura, PrivateKey privateKey, Document document, X509Certificate x509Certificate
-    ) throws XMLSecurityException {
+    ) throws XMLSecurityException, CertificateEncodingException, ClassNotFoundException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
         Element element = (Element) document.getElementsByTagName(tipoAssinatura.getTag()).item(0);
         String id = "#"+ element.getAttribute("Id");
         element.setIdAttribute("Id", true);
@@ -113,7 +120,19 @@ public class Assinar {
         transforms.addTransform(Transforms.TRANSFORM_ENVELOPED_SIGNATURE);
         transforms.addTransform(Transforms.TRANSFORM_C14N_OMIT_COMMENTS);
 
-        xmlSignature.addKeyInfo(x509Certificate);
+        //Passar bytes nulo pra converter base64 para o android - Antes: xmlSignature.addKeyInfo(x509Certificate);
+        org.apache.xml.security.keys.content.X509Data x509data =
+            new org.apache.xml.security.keys.content.X509Data(xmlSignature.getDocument());
+
+        XMLX509Certificate certBase64 = new XMLX509Certificate(x509data.getDocument(), (byte[]) null);
+        byte[] bytesCert = x509Certificate.getEncoded();
+        String text64 = XmlNfeUtil.encodeToStringAndroidBase64(bytesCert);
+        certBase64.addText(XMLUtils.ignoreLineBreaks() ? text64 : "\n" + text64 + "\n");
+
+        x509data.add(certBase64);
+
+        xmlSignature.getKeyInfo().add(x509data);
+        //
 
         xmlSignature.addDocument(id, transforms);
 

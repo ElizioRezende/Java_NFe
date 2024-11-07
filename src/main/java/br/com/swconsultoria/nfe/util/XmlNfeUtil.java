@@ -305,13 +305,22 @@ public class XmlNfeUtil {
         }
     }
 
-    private static byte[] decodeAndroidBase64(String value) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public static byte[] decodeAndroidBase64(String value) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
         Class<?> clazz = Class.forName("android.util.Base64");
 
         Method method = clazz.getMethod("decode", String.class, int.class);
 
         return (byte[]) method.invoke(null, value, 0);
+    }
+
+    public static String encodeToStringAndroidBase64(byte[] value) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+
+        Class<?> clazz = Class.forName("android.util.Base64");
+
+        Method method = clazz.getMethod("encodeToString", byte[].class, int.class);
+
+        return (String) method.invoke(null, value, 0);
     }
 
     /**
