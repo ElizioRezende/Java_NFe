@@ -8,10 +8,15 @@ import br.com.swconsultoria.nfe.dom.enuns.AssinaturaEnum;
 import br.com.swconsultoria.nfe.exception.NfeException;
 import br.com.swconsultoria.nfe.util.ObjetoUtil;
 import br.com.swconsultoria.nfe.util.XmlNfeUtil;
+import org.apache.xml.security.algorithms.SignatureAlgorithm;
 import org.apache.xml.security.c14n.Canonicalizer;
 import org.apache.xml.security.exceptions.XMLSecurityException;
 import org.apache.xml.security.keys.content.x509.XMLX509Certificate;
+import org.apache.xml.security.signature.ReferenceNotInitializedException;
 import org.apache.xml.security.transforms.Transforms;
+import org.apache.xml.security.utils.I18n;
+import org.apache.xml.security.utils.SignerOutputStream;
+import org.apache.xml.security.utils.UnsyncBufferedOutputStream;
 import org.apache.xml.security.utils.XMLUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -38,6 +43,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.security.*;
@@ -120,19 +126,7 @@ public class Assinar {
         transforms.addTransform(Transforms.TRANSFORM_ENVELOPED_SIGNATURE);
         transforms.addTransform(Transforms.TRANSFORM_C14N_OMIT_COMMENTS);
 
-        //Passar bytes nulo pra converter base64 para o android - Antes: xmlSignature.addKeyInfo(x509Certificate);
-        org.apache.xml.security.keys.content.X509Data x509data =
-            new org.apache.xml.security.keys.content.X509Data(xmlSignature.getDocument());
-
-        XMLX509Certificate certBase64 = new XMLX509Certificate(x509data.getDocument(), (byte[]) null);
-        byte[] bytesCert = x509Certificate.getEncoded();
-        String text64 = XmlNfeUtil.encodeToStringAndroidBase64(bytesCert);
-        certBase64.addText(XMLUtils.ignoreLineBreaks() ? text64 : "\n" + text64 + "\n");
-
-        x509data.add(certBase64);
-
-        xmlSignature.getKeyInfo().add(x509data);
-        //
+        xmlSignature.addKeyInfo(x509Certificate);
 
         xmlSignature.addDocument(id, transforms);
 
